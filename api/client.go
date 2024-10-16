@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"net/url"
@@ -40,6 +41,9 @@ var DefaultRoundTripper http.RoundTripper = &http.Transport{
 type Config struct {
 	// The address of the Prometheus to connect to.
 	Address string
+
+	// Headers contains custom HTTP request headers.
+	Headers map[string]string
 
 	// Client is used by the Client to drive HTTP requests. If not provided,
 	// a new one based on the provided RoundTripper (or DefaultRoundTripper) will be used.
@@ -99,12 +103,14 @@ func NewClient(cfg Config) (Client, error) {
 
 	return &httpClient{
 		endpoint: u,
+		headers:  cfg.Headers,
 		client:   cfg.client(),
 	}, nil
 }
 
 type httpClient struct {
 	endpoint *url.URL
+	headers  map[string]string
 	client   http.Client
 }
 
@@ -130,6 +136,11 @@ func (c *httpClient) Do(ctx context.Context, req *http.Request) (*http.Response,
 	if ctx != nil {
 		req = req.WithContext(ctx)
 	}
+
+	for k, v := range c.headers {
+		req.Header.Set(k, v)
+	}
+
 	resp, err := c.client.Do(req)
 	defer func() {
 		if resp != nil {
